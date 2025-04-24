@@ -5,7 +5,7 @@
 *
 * (bare minimum)
 * [] music & sounds
-* [] monsters that track & deal certain # dmg
+* [*] monsters that track & deal certain # dmg //just need to figure out where to put it
 * [] bullets do dmg
 * [] monsters have health
 * [] ui for health bar
@@ -15,7 +15,7 @@
 * [] bosses
 * (extras)
 * [] animations/cutscenes
-* [] different classes
+* [] different weapon classes
 *
 * ------------------------------------------------------------
 * notes:
