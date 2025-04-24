@@ -1,22 +1,35 @@
-let player, playerHealth;
-let walls, monster;
+//global variables///////////////////////////////
 
+//main sprites + attributes
+let player, playerHealth = 100; //"playerHealth -= dmgAmount;" to damage the player
+let walls;
+
+//monster stuff
+let monsters;
+let monsterStage1HP = 20;
+
+//bullet stuff
 let bullet, bullets;
 let bulletCooldown = 0;
 let bulletDelay = 20; //could be changeable through an upgrade
 
+//images
 let dirtImg;
 
+//gamestates
 let gameState = "titleScreen";
 
-let pierceUpgrade = true;
+//upgrades
+let pierceUpgrade = false;
 
-/////////////////////////
+//////////////////////////////////////////////////
 
 function preload() {
-  dirtImg = loadImage("dirt.png")
+  //preload any animations and images
+  dirtImg = loadImage("dirt.png");
 }
 
+//////////////////////////////////////////////////
 
 function setup() {
 	new createCanvas('1:1');
@@ -63,13 +76,8 @@ function setup() {
     walls.w, walls.h
   );
 
-  //monster attributes
-  monster = new Group();
-  //let monster1 = new Sprite(100, 100, 30, 30);
-  //monster1.image = '😈';
-  //monster.add(monster1);
-
   bullets = new Group();
+  monsters = new Group();
 
   //disable auto stuff
   allSprites.autoDraw = false;
@@ -78,63 +86,17 @@ function setup() {
 
 }
 
-///////////////
-
-function draw() {
-  if (gameState === "titleScreen") { 
-    titleScreen();
-  }
-  if (gameState === "runGame") {
-    runGame();
-  }
-  /*
-    if (gameState === "stage 1") {
-    gameOver();
-  }
-    */
-  /*
-    if (gameState === "stage 2") {
-    gameOver();
-  }
-    */
-  /*
-    if (gameState === "stage 3") {
-    gameOver();
-  }
-    */
-  if (gameState === "gameOver") {
-    gameOver();
-  }
+function createMonster(x, y, health = 20) {
+    //monster attributes
+    let monster = new Sprite(x, y, 30, 30);
+    monster.image = '😈';
+    monster.health = health;
+    monsters.add(monster);
 }
 
-///////////////
+//mechanics///////////////////////////////////////
 
-function titleScreen() {
-  background('black');
-  noStroke();
-
-  fill('blue');
-  textAlign(CENTER);
-  textSize(62);
-  textFont("arial");
-  text("untitled time game", width/2, height/2-100);
-
-  fill('white');
-  textSize(24);
-  textFont("Arial");
-  text("click LMB to start", width/2, height/2);
-
-  if (mouse.presses()) {
-    gameState = "runGame";
-  }
-}
-
-function runGame() {
-  //background color
-  background('blue');
-  image(dirtImg, 0, 0, 700, 700);
-
-  ///////////////////////////////////////////
+function playerMovement() {
 
   //player movement
   let moving = false;
@@ -169,8 +131,9 @@ function runGame() {
     player.image = '🧍';
   };
 
-  ///////////////////////////////////////////
+}
 
+function bulletMechanics() {
   //bullet stuff
   if (bulletCooldown > 0) {
     bulletCooldown--;
@@ -195,7 +158,7 @@ function runGame() {
     bullets.add(bullet);
 
     for(let b of bullets) {
-      b.overlaps(monster, (bullet, m) => {
+      b.overlaps(monsters, (bullet, m) => {
         if (!pierceUpgrade) {
           bullet.remove();
         }
@@ -208,13 +171,85 @@ function runGame() {
     bulletCooldown = bulletDelay;
 
   };
+}
+
+//gamestates manager//////////////////////////////
+
+function draw() {
+
+  //end game if player dies
+  if (playerHealth < 1) {
+    gameState = "gameOver";
+  }
+
+  //main gamestates
+  if (gameState === "titleScreen") { 
+    titleScreen();
+  }
+  if (gameState === "runGame") {
+    runGame();
+  }
+  /*
+    if (gameState === "stage 1") {
+    stage1();
+  }
+    */
+  /*
+    if (gameState === "stage 2") {
+    stage2();
+  }
+    */
+  /*
+    if (gameState === "stage 3") {
+    stage1();
+  }
+    */
+  if (gameState === "gameOver") {
+    gameOver();
+  }
+}
+
+//gamestates//////////////////////////////////////
+
+function titleScreen() {
+  background('black');
+  noStroke();
+
+  fill('blue');
+  textAlign(CENTER);
+  textSize(62);
+  textFont("arial");
+  text("untitled time game", width/2, height/2-100);
+
+  fill('white');
+  textSize(24);
+  textFont("Arial");
+  text("click LMB to start", width/2, height/2);
+
+  if (mouse.presses()) {
+    gameState = "runGame";
+  }
+}
+
+function runGame() {
+  //background color
+  background('blue');
+  image(dirtImg, 0, 0, 700, 700);
+
+  playerMovement();
+  bulletMechanics();
 
   ///////////////////////////////////////////
 
-  //end game if player dies
-  if (playerHealth === 0) {
-    gameState = "gameOver";
+  for (let monster of monsters) {
+    monster.moveTo(player, 1);
+
+    if (monster.overlapping(player)) {
+      playerHealth -= 1; // Deal damage
+    }
   }
+
+  ///////////////////////////////////////////
 
   world.step();        // updates physics
   allSprites.update(); // updates sprite logic
@@ -222,8 +257,17 @@ function runGame() {
 }
 
 function gameOver() {
+  background('black');
+  noStroke();
 
+  fill('white');
+  textAlign(CENTER);
+  textSize(62);
+  textFont("arial");
+  text("gameover!", width/2, height/2);
 }
+
+//update///////////////////////////////////////////
 
 function update() {
 	clear();
@@ -243,6 +287,7 @@ function update() {
 * [] currency system
 * [] shop
 * [] bosses
+* [] stage 1 done
 * (extras)
 * [] animations/cutscenes
 * [] different classes
@@ -260,5 +305,7 @@ function update() {
 *
 * chatgpt lwk sucks for figuring out p5, but it helps sometimes so
 *   if you can, use https://p5play.org/learn/index.html first
+*
+* cameras need to be used to make health ui's
 *
 ****************/
