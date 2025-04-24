@@ -93,6 +93,7 @@ function createMonster(x, y, health = 20) {
     let monster = new Sprite(x, y, 30, 30);
     monster.image = '😈';
     monster.health = health;
+    monster.maxHealth = 20;
     monsters.add(monster);
 }
 
@@ -233,6 +234,33 @@ function titleScreen() {
   }
 }
 
+function drawHealthBar(sprite, currentHealth, maxHealth, options = {}) {
+  let barWidth = options.barWidth || 40;
+  let barHeight = options.barHeight || 6;
+  let offsetY = options.offsetY || -sprite.h / 2 - 10;
+  let barColor = options.color || 'limegreen';
+  let barBackground = options.background || 'red';
+
+  let barX = sprite.x - barWidth / 2;
+  let barY = sprite.y + offsetY;
+
+  // Background
+  fill(barBackground);
+  noStroke();
+  rect(barX, barY, barWidth, barHeight);
+
+  // Health fill
+  fill(barColor);
+  let healthWidth = (currentHealth / maxHealth) * barWidth;
+  rect(barX, barY, healthWidth, barHeight);
+
+  // Border
+  noFill();
+  stroke(255);
+  rect(barX, barY, barWidth, barHeight);
+  noStroke();
+}
+
 function runGame() {
   //background color
   background('blue');
@@ -240,6 +268,15 @@ function runGame() {
 
   playerMovement();
   bulletMechanics();
+
+  // Health bar that follows the player
+  drawHealthBar(player, playerHealth, 100);
+  //Health bar that follows monster
+  for (let m of monsters) {
+    drawHealthBar(m, m.health, m.maxHealth, {
+      barWidth: 20, barHeight: 3, color: "red", background: 'black'
+    });
+  }
 
   ///////////////////////////////////////////
 
