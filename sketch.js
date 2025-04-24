@@ -2,11 +2,13 @@
 
 //main sprites + attributes
 let player, playerHealth = 100; //"playerHealth -= dmgAmount;" to damage the player
-let playerDmgedDelay = 60, playerDmgedCooldown = 0;
+let playerDmgedDelay = 60, playerDmgedCooldown = 180;
+let playerDmg = 5;
 let walls;
 
 //monster stuff
 let monsters;
+let monsterDmg;
 let monsterStage1HP = 20;
 let monsterSpeed = 1;
 let stage1MonstersSpawned = false;
@@ -31,17 +33,17 @@ function preload() {
   dirtImg = loadImage("dirt.png");
 }
 
-//////////////////////////////////////////////////
+//setup///////////////////////////////////////////
 
 function setup() {
-	new createCanvas('1:1');
+	let canvas = createCanvas(700, 700);
+  canvas.center();
 
   world.gravity.y = 0;
 
   //player attributes
-  player = new Sprite(100, 350, 30, 60);
+  player = new Sprite(100, 350, 40);
   player.image = '🧍';
-  player.d = 40;
   player.rotationLock = true;
   player.friction = 0.01;
   player.drag = 1;
@@ -93,7 +95,6 @@ function createMonster(x, y, health = 20) {
     let monster = new Sprite(x, y, 30, 30);
     monster.image = '😈';
     monster.health = health;
-    monster.maxHealth = 20;
     monsters.add(monster);
 }
 
@@ -155,13 +156,17 @@ function bulletMechanics() {
     bullet.vel.x = cos(angle) * speed;
     bullet.vel.y = sin(angle) * speed;
 
-    bullet.life = 60; // bullet disappears after ~100 frames
+    bullet.life = 60; //exchangeable for variable
     bullet.overlaps(player);
 
     bullets.add(bullet);
 
     for(let b of bullets) {
       b.overlaps(monsters, (bullet, m) => {
+        m.health -= playerDmg
+        if (m.health <= 0) {
+          m.remove();
+        }
         if (!pierceUpgrade) {
           bullet.remove();
         }
@@ -175,6 +180,22 @@ function bulletMechanics() {
 
   };
 }
+
+function drawCrosshair(x, y) {
+  noCursor();
+  push();
+  noFill();
+  stroke(255);
+  strokeWeight(2);
+
+  // horizontal line
+  line(x - 10, y, x + 10, y);
+  // vertical line
+  line(x, y - 10, x, y + 10);
+
+  pop();
+}
+
 
 //gamestates manager//////////////////////////////
 
@@ -234,33 +255,6 @@ function titleScreen() {
   }
 }
 
-function drawHealthBar(sprite, currentHealth, maxHealth, options = {}) {
-  let barWidth = options.barWidth || 40;
-  let barHeight = options.barHeight || 6;
-  let offsetY = options.offsetY || -sprite.h / 2 - 10;
-  let barColor = options.color || 'limegreen';
-  let barBackground = options.background || 'red';
-
-  let barX = sprite.x - barWidth / 2;
-  let barY = sprite.y + offsetY;
-
-  // Background
-  fill(barBackground);
-  noStroke();
-  rect(barX, barY, barWidth, barHeight);
-
-  // Health fill
-  fill(barColor);
-  let healthWidth = (currentHealth / maxHealth) * barWidth;
-  rect(barX, barY, healthWidth, barHeight);
-
-  // Border
-  noFill();
-  stroke(255);
-  rect(barX, barY, barWidth, barHeight);
-  noStroke();
-}
-
 function runGame() {
   //background color
   background('blue');
@@ -269,21 +263,14 @@ function runGame() {
   playerMovement();
   bulletMechanics();
 
-  // Health bar that follows the player
-  drawHealthBar(player, playerHealth, 100);
-  //Health bar that follows monster
-  for (let m of monsters) {
-    drawHealthBar(m, m.health, m.maxHealth, {
-      barWidth: 20, barHeight: 3, color: "red", background: 'black'
-    });
-  }
-
   ///////////////////////////////////////////
 
-  if (!stage1MonstersSpawned) {
-    createMonster(100, 100);
-    createMonster(300, 150);
-    createMonster(500, 250);
+  monsterDmg = 5;
+
+  if (!stage1MonstersSpawned) { //createMonster(100, 100, hp#);
+    createMonster(100, 100, monsterStage1HP);
+    createMonster(300, 150, monsterStage1HP);
+    createMonster(500, 250, monsterStage1HP);
   
     stage1MonstersSpawned = true; 
   }
@@ -293,10 +280,16 @@ function runGame() {
 
     if (playerDmgedCooldown > 0) {
       playerDmgedCooldown--;
+      if (playerDmgedCooldown > (playerDmgedDelay - 60)) {
+        player.visible = frameCount % 8 < 4;
+      } else {
+        player.visible = true;
+      }
     }
 
+    // when player gets hit
     if (monster.overlapping(player) && playerDmgedCooldown === 0) {
-      playerHealth -= 1; // Deal damage
+      playerHealth -= monsterDmg; // Deal damage
       playerDmgedCooldown = playerDmgedDelay;
     }
   }
@@ -306,6 +299,8 @@ function runGame() {
   world.step();        // updates physics
   allSprites.update(); // updates sprite logic
   allSprites.draw();   // renders all sprites
+  drawCrosshair(mouse.x, mouse.y);
+
 }
 
 function gameOver() {
@@ -322,7 +317,12 @@ function gameOver() {
 //update///////////////////////////////////////////
 
 function update() {
-	clear();
+  clear();
+}
+
+function restartGame() {
+  monsters.removeAll();
+  stage1MonstersSpawned = false;
 }
 
 
@@ -332,9 +332,9 @@ function update() {
 * (bare minimum)
 * [] music & sounds
 * [*] monsters that track & deal certain # dmg
-* [] bullets do dmg
-* [] monsters have health
-* [] ui for health bar
+* [*] bullets do dmg
+* [*] monsters have health
+* [*] ui for health bar
 * [] working rooms w/ camera
 * [] currency system
 * [] shop
