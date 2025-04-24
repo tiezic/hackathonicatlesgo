@@ -2,16 +2,18 @@
 
 //main sprites + attributes
 let player, playerHealth = 100; //"playerHealth -= dmgAmount;" to damage the player
+let playerDmgedDelay = 60, playerDmgedCooldown = 0;
 let walls;
 
 //monster stuff
 let monsters;
 let monsterStage1HP = 20;
+let monsterSpeed = 1;
+let stage1MonstersSpawned = false;
 
 //bullet stuff
 let bullet, bullets;
-let bulletCooldown = 0;
-let bulletDelay = 20; //could be changeable through an upgrade
+let bulletCooldown = 0, bulletDelay = 20; //could be changeable through an upgrade
 
 //images
 let dirtImg;
@@ -241,11 +243,24 @@ function runGame() {
 
   ///////////////////////////////////////////
 
-  for (let monster of monsters) {
-    monster.moveTo(player, 1);
+  if (!stage1MonstersSpawned) {
+    createMonster(100, 100);
+    createMonster(300, 150);
+    createMonster(500, 250);
+  
+    stage1MonstersSpawned = true; 
+  }
 
-    if (monster.overlapping(player)) {
+  for (let monster of monsters) {
+    monster.moveTo(player, monsterSpeed);
+
+    if (playerDmgedCooldown > 0) {
+      playerDmgedCooldown--;
+    }
+
+    if (monster.overlapping(player) && playerDmgedCooldown === 0) {
       playerHealth -= 1; // Deal damage
+      playerDmgedCooldown = playerDmgedDelay;
     }
   }
 
@@ -279,7 +294,7 @@ function update() {
 *
 * (bare minimum)
 * [] music & sounds
-* [] monsters that track & deal certain # dmg
+* [*] monsters that track & deal certain # dmg
 * [] bullets do dmg
 * [] monsters have health
 * [] ui for health bar
