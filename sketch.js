@@ -2,8 +2,9 @@
 
 //main sprites + attributes
 let player, playerHealth = 100; //"playerHealth -= dmgAmount;" to damage the player
-let playerDmgedDelay = 60, playerDmgedCooldown = 180;
+let playerDmgedDelay = 180, playerDmgedCooldown = 180;
 let playerDmg = 5;
+let playerCreated = false;
 let walls;
 
 //monster stuff
@@ -35,20 +36,21 @@ function preload() {
 
 //setup///////////////////////////////////////////
 
+function createPlayer() {
+    //player attributes
+    player = new Sprite(100, 350, 40, 'dynamic');
+    player.image = '🧍';
+    player.rotationLock = true;
+    player.friction = 0.01;
+    player.drag = 1;
+    player.textSize = 30;
+    playerCreated = true;
+}
+
 function setup() {
-	let canvas = createCanvas(700, 700);
-  canvas.center();
+  new Canvas(700, 700);
 
   world.gravity.y = 0;
-
-  //player attributes
-  player = new Sprite(100, 350, 40);
-  player.image = '🧍';
-  player.rotationLock = true;
-  player.friction = 0.01;
-  player.drag = 1;
-  player.collider = 'dynamic';
-  player.textSize = 30;
 
   //floor & stage attributes
   walls = new Group();
@@ -76,7 +78,7 @@ function setup() {
       '=..=.........=',
       '==============',
     ],
-    20, 20,
+    25, 25,
     walls.w, walls.h
   );
 
@@ -258,6 +260,7 @@ function draw() {
   if (gameState === "gameOver") {
     gameOver();
   }
+
 }
 
 //gamestates//////////////////////////////////////
@@ -275,7 +278,7 @@ function titleScreen() {
   fill('white');
   textSize(24);
   textFont("Arial");
-  text("click LMB to start", width/2, height/2);
+  text("click left mouse button to start", width/2, height/2);
 
   if (mouse.presses()) {
     gameState = "runGame";
@@ -285,14 +288,18 @@ function titleScreen() {
 function runGame() {
   //background
   image(dirtImg, 0, 0, 700, 700);
+  camera.on();
+  
+  if (!playerCreated) {
+    createPlayer();
+  }
 
   playerMovement();
   bulletMechanics();
 
+  //////////////////////////////////////////////
 
-  ///////////////////////////////////////////
-
-  monsterDmg = 5;
+  monsterDmg = 5
 
   if (!stage1MonstersSpawned) { //createMonster(100, 100, hp#);
     createMonster(100, 100, monsterStage1HP + 40);
@@ -307,11 +314,13 @@ function runGame() {
 
     if (playerDmgedCooldown > 0) {
       playerDmgedCooldown--;
-      if (playerDmgedCooldown > (playerDmgedDelay - 60)) {
+      if (playerDmgedCooldown > (playerDmgedDelay - 100)) {
         player.visible = frameCount % 8 < 4;
       } else {
         player.visible = true;
       }
+    } else {
+      player.visible = true;
     }
 
     // when player gets hit
@@ -319,6 +328,16 @@ function runGame() {
       playerHealth -= monsterDmg; // Deal damage
       playerDmgedCooldown = playerDmgedDelay;
     }
+  }
+  ///////////////////////////////////////////
+
+  if(player.x < 700) {
+    camera.x = lerp(camera.x, 350, 0.1);
+    camera.y = lerp(camera.y, 350, 0.1);
+  } else if (player.x > 700) {
+    camera.x = lerp(camera.x, 1050, 0.1);
+    camera.y = lerp(camera.y, 350, 0.1);
+    //camera.moveTo(1050, 350, 10);
   }
 
   ///////////////////////////////////////////
@@ -361,7 +380,6 @@ function restartGame() {
   monsters.removeAll();
   stage1MonstersSpawned = false;
 }
-
 
 /***************
 * checklist:
