@@ -1,11 +1,85 @@
 //global variables///////////////////////////////
 
+//👹
+
 //main sprites + attributes
 let player, playerHealth = 100; //"playerHealth -= dmgAmount;" to damage the player
 let playerDmgedDelay = 180, playerDmgedCooldown = 180;
 let playerDmg = 5;
 let playerCreated = false;
+
+//maps & walls
 let walls;
+let maps = {};
+let currentRoom = 'room1';
+//tiled map
+let map1DataBL = [
+  '==============',
+  '=.........=..=',
+  '=.=.....=....=',
+  '=....=.......=',
+  '=..=....=....=',
+  '=..........=..',
+  '=.....=.......',
+  '=.............',
+  '=..=..........',
+  '=.......=....=',
+  '=...=......=.=',
+  '=.......=....=',
+  '=..=.........=',
+  '==============',
+];
+
+let map1DataBR = [
+  '=====....=====',
+  '=.........=..=',
+  '=.=.....=....=',
+  '=....=.......=',
+  '=..=....=....=',
+  '...........=.=',
+  '......=......=',
+  '.............=',
+  '...=.........=',
+  '=.......=....=',
+  '=...=......=.=',
+  '=.......=....=',
+  '=..=.........=',
+  '==============',
+];
+
+let map1DataTR = [
+  '==============',
+  '=.........=..=',
+  '=.=.....=....=',
+  '=....=.......=',
+  '=..=....=....=',
+  '...........=.=',
+  '......=......=',
+  '.............=',
+  '...=.........=',
+  '=.......=....=',
+  '=...=......=.=',
+  '=.......=....=',
+  '=..=.........=',
+  '=====....=====',
+];
+
+let map1DataTL = [
+  '==============',
+  '=.........=..=',
+  '=.=.....=....=',
+  '=....=.......=',
+  '=..=....=....=',
+  '=..........=..',
+  '=.....=.......',
+  '=.............',
+  '=..=..........',
+  '=.......=....=',
+  '=...=......=.=',
+  '=.......=....=',
+  '=..=.........=',
+  '==============',
+];
 
 //monster stuff
 let monsters;
@@ -36,6 +110,28 @@ function preload() {
 
 //setup///////////////////////////////////////////
 
+function loadAllRooms() {
+  let tileW = 50;
+  let tileH = 50;
+  let offsetX = tileW / 2;
+  let offsetY = tileH / 2;
+  let cols = map1DataTL[0].length;
+  let rows = map1DataTL.length;
+
+  // top-left
+  new Tiles(map1DataTL, 0 + offsetX, 0 + offsetY, tileW, tileH, walls);
+
+  // top-right
+  new Tiles(map1DataTR, cols * tileW + offsetX, 0 + offsetY, tileW, tileH, walls);
+
+  // bottom-left
+  new Tiles(map1DataBL, 0 + offsetX, rows * tileH + offsetY, tileW, tileH, walls);
+
+  // bottom-right
+  new Tiles(map1DataBR, cols * tileW + offsetX, rows * tileH + offsetY, tileW, tileH, walls);
+
+}
+
 function createPlayer() {
     //player attributes
     player = new Sprite(100, 350, 40, 'dynamic');
@@ -60,27 +156,7 @@ function setup() {
   walls.tile = '=';
   walls.collider = 'static';
 
-  //tiled map
-  let worldMap1 = new Tiles(
-    [
-      '==============',
-      '=.........=..=',
-      '=.=.....=....=',
-      '=....=.......=',
-      '=..=....=....=',
-      '=..........=..',
-      '=.....=.......',
-      '=.............',
-      '=..=..........',
-      '=.......=....=',
-      '=...=......=.=',
-      '=.......=....=',
-      '=..=.........=',
-      '==============',
-    ],
-    25, 25,
-    walls.w, walls.h
-  );
+  loadAllRooms();
 
   bullets = new Group();
   monsters = new Group();
@@ -99,6 +175,29 @@ function createMonster(x, y, health = 20) {
     monster.health = health;
     monster.maxHealth = health;
     monsters.add(monster);
+}
+
+function monsterMechanics() {
+  for (let monster of monsters) {
+    monster.moveTo(player, monsterSpeed);
+
+    if (playerDmgedCooldown > 0) {
+      playerDmgedCooldown--;
+      if (playerDmgedCooldown > (playerDmgedDelay - 100)) {
+        player.visible = frameCount % 8 < 4;
+      } else {
+        player.visible = true;
+      }
+    } else {
+      player.visible = true;
+    }
+
+    // when player gets hit
+    if (monster.overlapping(player) && playerDmgedCooldown === 0) {
+      playerHealth -= monsterDmg; // Deal damage
+      playerDmgedCooldown = playerDmgedDelay;
+    }
+  }
 }
 
 //mechanics///////////////////////////////////////
@@ -309,26 +408,8 @@ function runGame() {
     stage1MonstersSpawned = true; 
   }
 
-  for (let monster of monsters) {
-    monster.moveTo(player, monsterSpeed);
+  monsterMechanics();
 
-    if (playerDmgedCooldown > 0) {
-      playerDmgedCooldown--;
-      if (playerDmgedCooldown > (playerDmgedDelay - 100)) {
-        player.visible = frameCount % 8 < 4;
-      } else {
-        player.visible = true;
-      }
-    } else {
-      player.visible = true;
-    }
-
-    // when player gets hit
-    if (monster.overlapping(player) && playerDmgedCooldown === 0) {
-      playerHealth -= monsterDmg; // Deal damage
-      playerDmgedCooldown = playerDmgedDelay;
-    }
-  }
   ///////////////////////////////////////////
 
   if(player.x < 700) {
