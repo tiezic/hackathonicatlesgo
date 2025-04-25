@@ -7,7 +7,6 @@ let player, playerHealth = 100; //"playerHealth -= dmgAmount;" to damage the pla
 let playerDmgedDelay = 180, playerDmgedCooldown = 180;
 let playerDmg = 5;
 let playerCreated = false;
-let playerCurrency = 0;
 
 //maps & walls
 let walls;
@@ -87,7 +86,10 @@ let monsters;
 let monsterDmg;
 let monsterStage1HP = 20;
 let monsterSpeed = 1;
-let stage1MonstersSpawned = false;
+let stage1TLMonstersSpawned = false;
+let stage1TRMonstersSpawned = false;
+let stage1BRMonstersSpawned = false;
+let stage1BLMonstersSpawned = false;
 
 //bullet stuff
 let bullet, bullets;
@@ -184,7 +186,7 @@ function setup() {
 function createMonster(x, y, health = 20) {
     //monster attributes
     let monster = new Sprite(x, y, 30, 30);
-    monster.image = '😈';
+    monster.image = '🦇';
     monster.health = health;
     monster.maxHealth = health;
     monsters.add(monster);
@@ -194,17 +196,6 @@ function monsterMechanics() {
   for (let monster of monsters) {
     monster.moveTo(player, monsterSpeed);
 
-    if (playerDmgedCooldown > 0) {
-      playerDmgedCooldown--;
-      if (playerDmgedCooldown > (playerDmgedDelay - 100)) {
-        player.visible = frameCount % 8 < 4;
-      } else {
-        player.visible = true;
-      }
-    } else {
-      player.visible = true;
-    }
-
     // when player gets hit
     if (monster.overlapping(player) && playerDmgedCooldown === 0) {
       playerHealth -= monsterDmg; // Deal damage
@@ -212,7 +203,14 @@ function monsterMechanics() {
     }
   }
 
-  if (playerDmgedCooldown <= 0) {
+  if (playerDmgedCooldown > 0) {
+    playerDmgedCooldown--;
+    if (playerDmgedCooldown > (playerDmgedDelay - 100)) {
+      player.visible = frameCount % 8 < 4;
+    } else {
+      player.visible = true;
+    }
+  } else {
     player.visible = true;
   }
 
@@ -320,7 +318,6 @@ function bulletMechanics() {
         m.health -= playerDmg
         if (m.health <= 0) {
           m.remove();
-          playerCurrency +=1;
         }
         if (!pierceUpgrade) {
           bullet.remove();
@@ -396,6 +393,52 @@ function cameraMapMovement() {
     camera.x = lerp(camera.x, 1050, cameraSpeed);
     camera.y = lerp(camera.y, 1050, cameraSpeed);
   }
+
+}
+
+
+function monsterTrackingStage1() {
+
+  if (player.x < canvas.w && player.y < canvas.h) { //TL
+    if (!stage1TLMonstersSpawned) { //createMonster(100, 100, hp#);
+      createMonster(100, 100, monsterStage1HP);
+      createMonster(300, 150, monsterStage1HP);
+      createMonster(500, 250, monsterStage1HP);
+    
+      stage1TLMonstersSpawned = true; 
+    }  
+  } else if (player.x > canvas.w && player.y < canvas.h) { //TR
+    if (!stage1TRMonstersSpawned) { //createMonster(100, 100, hp#);
+      createMonster(800, 100, monsterStage1HP);
+      createMonster(1000, 150, monsterStage1HP);
+      createMonster(1300, 250, monsterStage1HP);
+      createMonster(1000, 600, monsterStage1HP);
+      createMonster(1300, 550, monsterStage1HP);
+    
+      stage1TRMonstersSpawned = true; 
+    }
+  } else if (player.x < canvas.w && player.y > canvas.h) { //BL
+    if (!stage1BLMonstersSpawned) { //createMonster(100, 100, hp#);
+      createMonster(350, 1050, monsterStage1HP);
+      createMonster(350, 1050, monsterStage1HP);
+      createMonster(400, 1050, monsterStage1HP);
+      createMonster(350, 1050, monsterStage1HP);
+      createMonster(400, 1050, monsterStage1HP);
+    
+      stage1BLMonstersSpawned = true; 
+    }
+  } else if (player.x > canvas.w && player.y > canvas.h) { //BR
+    if (!stage1BRMonstersSpawned) { //createMonster(100, 100, hp#);
+      createMonster(1150, 1250, monsterStage1HP);
+      createMonster(1250, 1150, monsterStage1HP);
+      createMonster(850, 1050, monsterStage1HP);
+      createMonster(1300, 950, monsterStage1HP);
+      createMonster(900, 1250, monsterStage1HP);
+    
+      stage1BRMonstersSpawned = true; 
+    }
+  }
+
 }
 
 //gamestates manager//////////////////////////////
@@ -435,12 +478,6 @@ function draw() {
     gameOver();
   }
 
-   // displays currency
-   fill(255, 215, 0); // gold color
-   textSize(20);
-   textAlign(RIGHT);
-   text("Coins: " + playerCurrency, width - 20, 40);
-
 }
 
 //gamestates//////////////////////////////////////
@@ -471,6 +508,11 @@ function titleScreen() {
 function runGame() {
   //background
   image(dirtImg, 0, 0, canvas.w, canvas.h);
+  fill(0, 0, 0, 90);  
+  noStroke();
+  rect(0, 0, canvas.w, canvas.h);
+
+  monsterDmg = 10;
 
   if (!timerStarted) {
     endTime = millis() + totalTime;
@@ -494,15 +536,7 @@ function runGame() {
 
   //spawn monsters//////////////////////////////
 
-  monsterDmg = 5;
-
-  if (!stage1MonstersSpawned) { //createMonster(100, 100, hp#);
-    createMonster(100, 100, monsterStage1HP);
-    createMonster(300, 150, monsterStage1HP);
-    createMonster(500, 250, monsterStage1HP);
-  
-    stage1MonstersSpawned = true; 
-  }
+  monsterTrackingStage1();
 
   ///////////////////////////////////////////
 
@@ -512,8 +546,6 @@ function runGame() {
 
   ///////////////////////////////////////////
   
-  drawCountdownTimer();
-  drawCrosshair(mouse.x, mouse.y);
   drawHealthBar(player, playerHealth, 100);
 
   for (let m of monsters) {
@@ -521,6 +553,9 @@ function runGame() {
       barWidth: 20, barHeight: 3, color: "red", background: 'black'
     });
   }
+
+  drawCountdownTimer();
+  drawCrosshair(mouse.x, mouse.y);
 
 }
 
@@ -546,7 +581,7 @@ function update() {
 
 function restartGame() {
   monsters.removeAll();
-  stage1MonstersSpawned = false;
+  stage1TLMonstersSpawned = false;
 }
 
 /***************
