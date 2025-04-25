@@ -9,7 +9,7 @@ let playerDmg = 5;
 let playerCreated = false;
 let playerCurrency = 0;
 let soulCounter = 0;
-let soulsNeededStage1 = 18;
+let soulsNeededStage1 = 1;
 let soulsNeededStage2 = 25;
 
 //upgrade variables
@@ -40,6 +40,7 @@ let pierceUpgrade = false;
  const upgradeNotificationDuration = 120; // Frames
  let shopClickableArea; //define globally
  let shopElement; // p5.Element for the shop button
+ let shopIsToggled = false;
 
  //upgrade costs
  let timeUpgradeCost = 5;
@@ -217,6 +218,7 @@ let bulletCooldown = 0, bulletDelay = 20; //could be changeable through an upgra
 let dirtImg;
 let grassImg;
 let musicPlaying = false;
+let transitionImage1;
 
 //timer
 let totalTime = 1.5 * 60 * 1000; //1:30
@@ -226,6 +228,9 @@ let remainingTime = 0;
 
 //gamestates
 let gameState = "titleScreen";
+let fadeAlpha = 0;
+let transition1SoundPlayed = false;
+let tempTimer = 0;
 
 //////////////////////////////////////////////////
 
@@ -237,10 +242,18 @@ function preload() {
   grassImg = loadImage("grass.png");
   daFont = loadFont("BlackCasper.ttf");
   daFont2 = loadFont("AlmendraDisplay-Regular.ttf");
+  transitionImage1 = loadImage("timetravel.png");
+
+  monsterHitSound = loadSound("monsterHitSound.mp3");
+  personHitSound = loadSound("personHitSound.mp3");
+  projectileSound = loadSound("projectileSound.mp3");
+  transition1Sound = loadSound("TeleporterSound.mp3")
   
 }
 
 //setup///////////////////////////////////////////
+
+let tilesArray = [];
 
 function loadAllRooms(mapDataTL, mapDataTR, mapDataBL, mapDataBR) {
   let tileW = 50;
@@ -251,16 +264,20 @@ function loadAllRooms(mapDataTL, mapDataTR, mapDataBL, mapDataBR) {
   let rows = mapDataTL.length;
 
   // top-left
-  new Tiles(mapDataTL, 0 + offsetX, 0 + offsetY, tileW, tileH, walls);
+  let tilesTL = new Tiles(mapDataTL, 0 + offsetX, 0 + offsetY, tileW, tileH, walls);
+  tilesArray.push(tilesTL);
 
   // top-right
-  new Tiles(mapDataTR, cols * tileW + offsetX, 0 + offsetY, tileW, tileH, walls);
+  let tilesTR = new Tiles(mapDataTR, cols * tileW + offsetX, 0 + offsetY, tileW, tileH, walls);
+  tilesArray.push(tilesTR);
 
   // bottom-left
-  new Tiles(mapDataBL, 0 + offsetX, rows * tileH + offsetY, tileW, tileH, walls);
+  let tilesBL = new Tiles(mapDataBL, 0 + offsetX, rows * tileH + offsetY, tileW, tileH, walls);
+  tilesArray.push(tilesBL);
 
   // bottom-right
-  new Tiles(mapDataBR, cols * tileW + offsetX, rows * tileH + offsetY, tileW, tileH, walls);
+  let tilesBR = new Tiles(mapDataBR, cols * tileW + offsetX, rows * tileH + offsetY, tileW, tileH, walls);
+  tilesArray.push(tilesBR);
 
 }
 
@@ -319,20 +336,6 @@ function setup() {
   allSprites.autoUpdate = false;
   world.autoStep = false;
 
-   // Create the shop button as a p5.Element
-   shopElement = createDiv("Shop");
-   shopElement.id("shop-button");
-   shopElement.style('position', 'fixed');
-   shopElement.style('top', '10px');
-   shopElement.style('left', `${width - 160}px`);
-   shopElement.style('background-color', '#c8c8c8');
-   shopElement.style('color', '#000');
-   shopElement.style('padding', '8px 15px');
-   shopElement.style('border-radius', '5px');
-   shopElement.style('cursor', 'pointer');
-   shopElement.style('text-align', 'center');
-   shopElement.mousePressed(toggleShop);
-
    // Shop clickable area (initially defined, will be updated on resize if needed)
    shopClickableArea = {
        x1: width - 160,
@@ -346,19 +349,35 @@ function setup() {
 
 }
 
+function actualShopButton() {
+     // Create the shop button as a p5.Element
+     shopElement = createDiv("Shop");
+     shopElement.style("position", "absolute");
+     shopElement.position(windowWidth - 120, windowHeight - 60);
+     shopElement.style("background", "#fff");
+     shopElement.style("padding", "10px");
+     shopElement.style('border-radius', '5px');
+     shopElement.style('cursor', 'pointer');
+     shopElement.mousePressed(toggleShop);
+}
+
 function windowResized() {
   resizeCanvas(700, 700); // Or your desired dimensions
   // Update shop button position on resize
   if (shopElement) {
-      shopElement.style('left', `${width - 160}px`);
+    shopElement.position(windowWidth - 120, windowHeight - 60);
+
+    //shopElement.style('left', `${width}px`);
   }
   // Update shop clickable area if needed
+  /*
   shopClickableArea = {
       x1: width - 160,
       y1: 10,
       x2: width - 10,
       y2: 40
   };
+  */
 }
 
 function toggleShop() {
@@ -384,6 +403,9 @@ function monsterMechanics() {
     if (monster.overlapping(player) && playerDmgedCooldown === 0) {
       playerHealth -= monsterDmg; // Deal damage
       playerDmgedCooldown = playerDmgedDelay;
+      if (personHitSound && personHitSound.isLoaded()) {
+        personHitSound.play(0, 1, 1, 0.25);
+      }
     }
     if (isDashing && hasDashSlash && monster.overlapping(player)) {
       monster.health -= dashDamage;
@@ -414,6 +436,7 @@ function spawnSoul(x, y) {
 }
 
 function drawCountdownTimer() {
+  //also has soul counter and gold counter
   let timeLeft = max(0, endTime - millis());
   let secondsLeft = int(timeLeft / 1000);
 
@@ -441,6 +464,13 @@ function drawCountdownTimer() {
   fill(0, 100, 230);
   text(soulCounterText, 5 + padding, 32);
   pop();
+  camera.on();
+
+  camera.off();
+  fill(255, 215, 0); // gold color
+   textSize(20);
+   textAlign(RIGHT);
+   text("Coins: " + playerCurrency, width - 20, 40);
   camera.on();
 
   if (timeLeft === 0) {
@@ -545,6 +575,10 @@ function bulletMechanics() {
     bullet.color = 'black';
     bullet.move(mouse.x, mouse.y, 2);
 
+    if (projectileSound && projectileSound.isLoaded()) {
+      projectileSound.play();
+    }
+
     // Calculate direction from player to mouse
     let angle = atan2(mouse.y - player.y, mouse.x - player.x);
     // Set bullet velocity
@@ -559,7 +593,10 @@ function bulletMechanics() {
 
     for(let b of bullets) {
       b.overlaps(monsters, (bullet, m) => {
-        m.health -= playerDmg
+        m.health -= playerDmg;
+        if (monsterHitSound && monsterHitSound.isLoaded()) {
+          monsterHitSound.play(0, 1, 1, 0.15);
+        }
         if (m.health <= 0) {
           spawnSoul(m.x, m.y);
           m.remove();
@@ -743,7 +780,7 @@ function draw() {
   background(0);
   if (mouse.presses()) {
     if(!musicPlaying) {
-      mainBackgroundMusic.play();
+      mainBackgroundMusic.play(0, 1, 1, 5);
       mainBackgroundMusic.setVolume(0.4);
       musicPlaying = true;
     }
@@ -757,6 +794,38 @@ function draw() {
   //main gamestates
   if (gameState === "titleScreen") { 
     titleScreen();
+  }
+  if (gameState === "transition1") {
+    transition1();
+  }
+  if (gameState === "transition2") {
+    transition2();
+  }
+  if (gameState === "transition1ImageShow") {
+    image(transitionImage1, 0, 0, width+100, height);
+    tempTimer += 1;
+    if (tempTimer >= 90) {
+      fadeAlpha += 10;
+      fill(255, fadeAlpha);
+      rect(0, 0, width, height);
+      if (fadeAlpha >= 255) {
+        fadeAlpha = 0;
+        gameState = "runGame";
+      }
+    }
+  }
+  if (gameState === "transition2ImageShow") {
+    image(transitionImage1, 0, 0, width+100, height);
+    tempTimer += 1;
+    if (tempTimer >= 90) {
+      fadeAlpha += 10;
+      fill(255, fadeAlpha);
+      rect(0, 0, width, height);
+      if (fadeAlpha >= 255) {
+        fadeAlpha = 0;
+        gameState = "level2";
+      }
+    }
   }
   if (gameState === "runGame") {
     runGame();
@@ -783,12 +852,8 @@ function draw() {
     gameOver();
   }
 
-  camera.off();
-  fill(255, 215, 0); // gold color
-   textSize(20);
-   textAlign(RIGHT);
-   text("Coins: " + playerCurrency, width - 20, 40);
-  camera.on();
+  drawCrosshair(mouse.x, mouse.y); ///////////////bcuysegcshbcesjydsbh
+
 } 
 
 //gamestates//////////////////////////////////////
@@ -812,9 +877,41 @@ function titleScreen() {
   pop();
 
   if (mouse.presses()) {
-    gameState = "runGame";
+    gameState = "transition1";
   }
 }
+
+function transition1() {
+  fadeAlpha += 5;
+  fill(255, fadeAlpha);
+  rect(0, 0, width, height);
+
+  if (!transition1SoundPlayed) {
+    transition1Sound.play();
+    transition1SoundPlayed = true;
+  }
+  if (fadeAlpha >= 255) {
+    fadeAlpha = 0;
+    gameState = "transition1ImageShow";
+    transition1SoundPlayed = false;
+  }
+}
+
+
+function transition2() {
+  background(255, 255, 255);
+  fadeAlpha += 2;
+  if (!transition1SoundPlayed) {
+    transition1Sound.play();
+    transition1SoundPlayed = true;
+  }
+  if (fadeAlpha >= 255) {
+    fadeAlpha = 0;
+    gameState = "transition2ImageShow";
+    transition1SoundPlayed = false;
+  }
+}
+
 
 function runGame() {
   //background
@@ -822,6 +919,10 @@ function runGame() {
   fill(0, 0, 0, 90);  
   noStroke();
   rect(0, 0, canvas.w, canvas.h);
+  if (!shopIsToggled) {
+    actualShopButton();
+    shopIsToggled = true;
+  }
 
   monsterDmg = 10;
 
@@ -877,21 +978,21 @@ function runGame() {
   }
 
   drawCountdownTimer();
-  drawCrosshair(mouse.x, mouse.y); ///////////////bcuysegcshbcesjydsbh
 
   //end stage
   if (soulCounter === soulsNeededStage1) {
     remainingTime = max(0, endTime - millis());
     timerStarted = false;
-    playerCreated = false;
     soulCounter = 0;
     mapLoaded = false;
+    walls = [];
 
     allSprites.autoDraw = false;
     allSprites.autoUpdate = false;
     world.autoStep = false;
+    playerCreated = false;
 
-    gameState = "level2";
+    gameState = "transition2";
 
   }
 
@@ -905,7 +1006,7 @@ function drawShop() {
   rect(width / 2 - 200, height / 2 - 150, 400, 450, 20); //increased height of shop
 
   push(); // Isolate text styles
-  textFont("arial");
+  textFont("serif");
   textAlign(CENTER, CENTER);
   fill(255);
   textSize(28);
@@ -918,7 +1019,7 @@ function drawShop() {
        description: "+20 Max Health."},
       {name: "💥 Damage Upgrade", cost: damageUpgradeCosts[damageUpgradeLevel] || "MAX", key: "3",
        description: "+1 Projectile Damage."},
-      {name: "🌀 Ricochet Bullets", cost: hasRicochet ? "BOUGHT" : ricochetCost, key: "4",
+      {name: "⚽ Ricochet Bullets", cost: hasRicochet ? "BOUGHT" : ricochetCost, key: "4",
        description: "Bullets bounce off walls."},
       {name: "🔁 Pierce Bullets", cost: pierceUpgrade ? "BOUGHT" : pierceUpgradeCost, key: "5",
        description: "Bullets pass through enemies."},
@@ -961,7 +1062,6 @@ function drawShop() {
   text("Press the corresponding number key to purchase.", width / 2, height / 2 + 270); //adjusted position
   textSize(18);
   fill(255, 255, 0); // Highlight currency
-  text(`Souls: ${playerCurrency} 🧿`, width / 2, height / 2 + 220); //adjusted position
 
   pop(); // Restore previous text styles
   camera.on(); // Turn camera movement back on
@@ -989,7 +1089,7 @@ function handleShopInput() {
               showUpgradeNotification("Damage Increased!");
           });
       } else if (kb.presses("4") && !hasRicochet) {
-          attemptPurchase("🌀 Ricochet Bullets", ricochetCost, () => {
+          attemptPurchase("⚽ Ricochet Bullets", ricochetCost, () => {
               hasRicochet = true;
               showUpgradeNotification("Ricochet Acquired!");
           });
@@ -1107,6 +1207,7 @@ function level2() {
 function gameOver() {
   background('black');
   noStroke();
+  shopElement.hide();
 
   fill('white');
   textAlign(CENTER);
@@ -1152,10 +1253,10 @@ function restartGame() {
 * [*] monsters have health
 * [*] ui for health bar
 * [*] working rooms w/ camera
-* [] currency system
-* [] shop
+* [*] currency system
+* [*] shop
 * [] bosses
-* [*] stage 1 done
+* [] stage 1 done
 * (extras)
 * [] animations/cutscenes
 * [] different classes
