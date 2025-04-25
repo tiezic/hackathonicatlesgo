@@ -8,6 +8,7 @@ let playerDmgedDelay = 180, playerDmgedCooldown = 180;
 let playerDmg = 5;
 let playerCreated = false;
 let playerCurrency = 0;
+let soulCounter = 0;
 
 //maps & walls
 let walls;
@@ -87,6 +88,7 @@ let monsters;
 let monsterDmg;
 let monsterStage1HP = 20;
 let monsterSpeed = 1;
+let souls;
 let stage1TLMonstersSpawned = false;
 let stage1TRMonstersSpawned = false;
 let stage1BRMonstersSpawned = false;
@@ -101,7 +103,7 @@ let dirtImg;
 let musicPlaying = false;
 
 //timer
-let totalTime = 1 * 60 * 1000;
+let totalTime = 1.5 * 60 * 1000; //1:30
 let endTime;
 let timerStarted = false;
 
@@ -176,6 +178,7 @@ function setup() {
 
   bullets = new Group();
   monsters = new Group();
+  souls = new Group();
 
   //disable auto stuff
   allSprites.autoDraw = false;
@@ -215,6 +218,16 @@ function monsterMechanics() {
     player.visible = true;
   }
 
+}
+
+function spawnSoul(x, y) {
+  let soul = new Sprite(x, y, 30);
+  soul.vel.y = -0.3; // floats upward
+  soul.friction = 0.98;
+  soul.image = '🌀';
+  soul.collider = "dynamic";
+  soul.collectible = true;
+  souls.add(soul);
 }
 
 function drawCountdownTimer() {
@@ -318,6 +331,7 @@ function bulletMechanics() {
       b.overlaps(monsters, (bullet, m) => {
         m.health -= playerDmg
         if (m.health <= 0) {
+          spawnSoul(m.x, m.y);
           m.remove();
           playerCurrency +=1;
         }
@@ -397,7 +411,6 @@ function cameraMapMovement() {
   }
 
 }
-
 
 function monsterTrackingStage1() {
 
@@ -480,12 +493,13 @@ function draw() {
     gameOver();
   }
 
+  camera.off();
   fill(255, 215, 0); // gold color
    textSize(20);
    textAlign(RIGHT);
    text("Coins: " + playerCurrency, width - 20, 40);
-
-}
+  camera.on();
+} 
 
 //gamestates//////////////////////////////////////
 
@@ -553,6 +567,17 @@ function runGame() {
 
   ///////////////////////////////////////////
   
+  for (let soul of souls) {
+    if (soul.collectible && soul.overlapping(player)) {
+      soul.collectible = false;
+      soul.remove(); // collect the soul
+  
+      soulCounter += 1;
+  
+      // particle effect or sound here
+    }
+  }
+
   drawHealthBar(player, playerHealth, 100);
 
   for (let m of monsters) {
