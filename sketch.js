@@ -120,6 +120,11 @@ function preload() {
   dirtImg = loadImage("dirt.png");
   daFont = loadFont("BlackCasper.ttf");
   daFont2 = loadFont("AlmendraDisplay-Regular.ttf");
+
+  //Game sounds
+  monsterHitSound = loadSound("monsterHitSound.mp3");
+  personHitSound = loadSound("personHitSound.mp3");
+  projectileSound = loadSound("projectileSound.mp3");
   
 }
 
@@ -200,6 +205,9 @@ function monsterMechanics() {
     // when player gets hit
     if (monster.overlapping(player) && playerDmgedCooldown === 0) {
       playerHealth -= monsterDmg; // Deal damage
+      if (personHitSound && personHitSound.isLoaded()) {
+        personHitSound.play();
+      }
       playerDmgedCooldown = playerDmgedDelay;
     }
   }
@@ -302,6 +310,11 @@ function bulletMechanics() {
     bullet.color = 'black';
     bullet.move(mouse.x, mouse.y, 2);
 
+    //Bullet Sound
+    if (projectileSound && projectileSound.isLoaded()) {
+      projectileSound.play();
+    }
+
     // Calculate direction from player to mouse
     let angle = atan2(mouse.y - player.y, mouse.x - player.x);
     // Set bullet velocity
@@ -317,6 +330,9 @@ function bulletMechanics() {
     for(let b of bullets) {
       b.overlaps(monsters, (bullet, m) => {
         m.health -= playerDmg
+        if (monsterHitSound && monsterHitSound.isLoaded()) {
+          monsterHitSound.play();
+        }
         if (m.health <= 0) {
           m.remove();
           playerCurrency +=1;
