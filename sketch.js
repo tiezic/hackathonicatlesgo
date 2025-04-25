@@ -12,6 +12,45 @@ let soulCounter = 0;
 let soulsNeededStage1 = 18;
 let soulsNeededStage2 = 25;
 
+//upgrade variables
+let canBuyTime = true;
+let hasRicochet = false;
+let healthUpgradeLevel = 0;
+let damageUpgradeLevel = 0;
+let timeBought = 0; // Keep track of added time
+let pierceUpgrade = false;
+
+ // New Dash Variables
+ let canDash = false; //buyable
+ let hasDashSlash = false; //buyable
+ let isDashing = false;
+ let dashSpeed = 10;
+ let dashDuration = 10; // Frames
+ let dashCooldownDuration = 30; // Frames
+ let dashTimer = 0;
+ let dashCooldownTimer = 0;
+ let dashDirection = {x: 0, y: 0};
+ let dashDamage = 10; //damage of the dash
+
+ //shop variables
+ let shopOpen = false;
+ let gamePaused = false;
+ let upgradeNotificationVisible = false;
+ let upgradeNotificationTimer = 0;
+ const upgradeNotificationDuration = 120; // Frames
+ let shopClickableArea; //define globally
+ let shopElement; // p5.Element for the shop button
+
+ //upgrade costs
+ let timeUpgradeCost = 5;
+ const ricochetCost = 10;
+ const healthUpgradeCosts = [8, 15, 25]; // Costs for each level
+ const damageUpgradeCosts = [12, 20, 30]; // Costs for each level
+ const pierceUpgradeCost = 15;
+ const dashCost = 20;
+ const dashSlashCost = 30;
+ const baseTimeIncrease = 15 * 1000; // 15 seconds per purchase
+
 //maps & walls
 let walls;
 let maps = {};
@@ -186,10 +225,7 @@ let timerStarted = false;
 let remainingTime = 0;
 
 //gamestates
-let gameState = "level2";
-
-//upgrades
-let pierceUpgrade = true;
+let gameState = "titleScreen";
 
 //////////////////////////////////////////////////
 
@@ -283,6 +319,52 @@ function setup() {
   allSprites.autoUpdate = false;
   world.autoStep = false;
 
+   // Create the shop button as a p5.Element
+   shopElement = createDiv("Shop");
+   shopElement.id("shop-button");
+   shopElement.style('position', 'fixed');
+   shopElement.style('top', '10px');
+   shopElement.style('left', `${width - 160}px`);
+   shopElement.style('background-color', '#c8c8c8');
+   shopElement.style('color', '#000');
+   shopElement.style('padding', '8px 15px');
+   shopElement.style('border-radius', '5px');
+   shopElement.style('cursor', 'pointer');
+   shopElement.style('text-align', 'center');
+   shopElement.mousePressed(toggleShop);
+
+   // Shop clickable area (initially defined, will be updated on resize if needed)
+   shopClickableArea = {
+       x1: width - 160,
+       y1: 10,
+       x2: width - 10,
+       y2: 40
+   };
+
+   // Add a mousePressed listener to close shop on click outside shop.
+   //canvas.mousePressed(handleMousePress);
+
+}
+
+function windowResized() {
+  resizeCanvas(700, 700); // Or your desired dimensions
+  // Update shop button position on resize
+  if (shopElement) {
+      shopElement.style('left', `${width - 160}px`);
+  }
+  // Update shop clickable area if needed
+  shopClickableArea = {
+      x1: width - 160,
+      y1: 10,
+      x2: width - 10,
+      y2: 40
+  };
+}
+
+function toggleShop() {
+  shopOpen = !shopOpen;
+  gamePaused = shopOpen;
+  console.log("Shop toggled via button");
 }
 
 function createMonster(x, y, health = 20) {
@@ -302,6 +384,9 @@ function monsterMechanics() {
     if (monster.overlapping(player) && playerDmgedCooldown === 0) {
       playerHealth -= monsterDmg; // Deal damage
       playerDmgedCooldown = playerDmgedDelay;
+    }
+    if (isDashing && hasDashSlash && monster.overlapping(player)) {
+      monster.health -= dashDamage;
     }
   }
 
@@ -366,42 +451,86 @@ function drawCountdownTimer() {
 //mechanics///////////////////////////////////////
 
 function playerMovement() {
-
   //player movement
   let moving = false;
   let playerForce = 35;
-  player.vel.x *= .9;
-  player.vel.y *= .9;
 
+  if (!isDashing) { // Only move normally if not dashing
+      player.vel.x *= .9;
+      player.vel.y *= .9;
 
-  if (kb.pressing('left')) {
-    player.applyForce(-playerForce, 0);
-    moving = true;
-    player.image = '🚶';
-  };
+      if (kb.pressing('left')) {
+          player.applyForce(-playerForce, 0);
+          moving = true;
+          player.image = '🚶';
+      };
 
-  if (kb.pressing('right')) {
-    player.applyForce(playerForce, 0);
-    moving = true;
-    player.image = '🚶‍➡️';
-  };
+      if (kb.pressing('right')) {
+          player.applyForce(playerForce, 0);
+          moving = true;
+          player.image = '🚶‍➡️';
+      };
 
-  if (kb.pressing('up')) { 
-    player.applyForce(0, -playerForce);
-    moving = true;
-    player.image = '🚶‍➡️';
-  };
+      if (kb.pressing('up')) {
+          player.applyForce(0, -playerForce);
+          moving = true;
+          player.image = '🚶‍➡️';
+      };
 
-  if (kb.pressing('down')) {
-    player.applyForce(0, playerForce);
-    moving = true; 
-    player.image = '🚶';
-  };
+      if (kb.pressing('down')) {
+          player.applyForce(0, playerForce);
+          moving = true;
+          player.image = '🚶';
+      };
 
-  if (!moving) {
-    player.image = '🧍';
-  };
+      if (canDash && kb.presses('shift') && dashCooldownTimer === 0) {
+          isDashing = true;
+          dashTimer = dashDuration;
+          dashCooldownTimer = dashCooldownDuration;
+          moving = true;
 
+          // Determine dash direction
+          if (kb.pressing('left')) {
+              dashDirection.x = -1;
+          } else if (kb.pressing('right')) {
+              dashDirection.x = 1;
+          } else {
+              dashDirection.x = 0;
+          }
+          if (kb.pressing('up')) {
+              dashDirection.y = -1;
+          } else if (kb.pressing('down')) {
+              dashDirection.y = 1;
+          } else {
+              dashDirection.y = 0;
+          }
+
+          // Normalize the direction vector
+          if (dashDirection.x !== 0 && dashDirection.y !== 0) {
+              dashDirection.x *= 0.707; //  1 / Math.sqrt(2)
+              dashDirection.y *= 0.707;
+          }
+      }
+
+      if (!moving) {
+          player.image = '🧍';
+      };
+  }
+
+  if (isDashing) {
+      player.vel.x = dashDirection.x * dashSpeed;
+      player.vel.y = dashDirection.y * dashSpeed;
+      dashTimer--;
+      if (dashTimer <= 0) {
+          isDashing = false;
+          player.vel.x = 0;
+          player.vel.y = 0;
+      }
+  }
+
+  if (dashCooldownTimer > 0) {
+      dashCooldownTimer--;
+  }
 }
 
 function bulletMechanics() {
@@ -443,6 +572,11 @@ function bulletMechanics() {
       b.overlaps(walls, (bullet, w) => {
         bullet.remove();
       });
+      if (hasRicochet) {
+        b.onWall = function () {
+            this.vel.reflect(this.overlap(walls).normal);
+        }
+      }
       b.overlaps(souls, () => {
         //empty, if bullet interacts with soul do nothing
       });
@@ -626,6 +760,21 @@ function draw() {
   }
   if (gameState === "runGame") {
     runGame();
+    if (shopOpen) {
+      drawShop(); //draw shop on top
+      handleShopInput(); // Handle shop input when open
+    }
+    if (upgradeNotificationVisible) {
+      drawUpgradeNotification();
+      upgradeNotificationTimer--;
+      if (upgradeNotificationTimer <= 0) {
+          upgradeNotificationVisible = false;
+      }
+    }
+    // Only draw the crosshair when the shop is closed and the game is running
+    if (!shopOpen) {
+      drawCrosshair(mouse.x, mouse.y);
+  }
   }
     if (gameState === "level2") {
     level2();
@@ -659,7 +808,7 @@ function titleScreen() {
   textSize(30);
   textFont(daFont2);
   text("click left mouse button to start", (width/2), (height/2) + 20);
-  text("WASD to move, LMB to shoot", (width/2), (height/2) + 50);
+  text("WASD to move, LMB to shoot, shift to dash", (width/2), (height/2) + 50);
   pop();
 
   if (mouse.presses()) {
@@ -712,8 +861,8 @@ function runGame() {
     if (soul.collectible && soul.overlapping(player)) {
       soul.collectible = false;
       soul.remove(); // collect the soul
-  
       soulCounter += 1;
+      playerCurrency += 1;
   
       // particle effect or sound here
     }
@@ -728,8 +877,10 @@ function runGame() {
   }
 
   drawCountdownTimer();
-  drawCrosshair(mouse.x, mouse.y);
-  if (soulCounter === soulsNeededStage1) { //stage win condition
+  drawCrosshair(mouse.x, mouse.y); ///////////////bcuysegcshbcesjydsbh
+
+  //end stage
+  if (soulCounter === soulsNeededStage1) {
     remainingTime = max(0, endTime - millis());
     timerStarted = false;
     playerCreated = false;
@@ -744,6 +895,156 @@ function runGame() {
 
   }
 
+}
+
+function drawShop() {
+  camera.off(); // Turn off camera movement for UI
+
+  // Semi-transparent background panel
+  fill(0, 180);
+  rect(width / 2 - 200, height / 2 - 150, 400, 450, 20); //increased height of shop
+
+  push(); // Isolate text styles
+  textFont("arial");
+  textAlign(CENTER, CENTER);
+  fill(255);
+  textSize(28);
+  text("🛒 Upgrades", width / 2, height / 2 - 110); // More evocative title
+
+  // Upgrade options data
+  let upgradesData = [
+      {name: "⏳ Add Time", cost: timeUpgradeCost, key: "1", description: "+10 seconds to your run."},
+      {name: "❤️ Health Upgrade", cost: healthUpgradeCosts[healthUpgradeLevel] || "MAX", key: "2",
+       description: "+20 Max Health."},
+      {name: "💥 Damage Upgrade", cost: damageUpgradeCosts[damageUpgradeLevel] || "MAX", key: "3",
+       description: "+1 Projectile Damage."},
+      {name: "🌀 Ricochet Bullets", cost: hasRicochet ? "BOUGHT" : ricochetCost, key: "4",
+       description: "Bullets bounce off walls."},
+      {name: "🔁 Pierce Bullets", cost: pierceUpgrade ? "BOUGHT" : pierceUpgradeCost, key: "5",
+       description: "Bullets pass through enemies."},
+      {name: "⚡ Dash", cost: canDash? "BOUGHT": dashCost, key: "6", description: "Allows you to dash."}, //added dash
+      {name: "⚔️ Dash n' Slash", cost: hasDashSlash? "BOUGHT": dashSlashCost, key: "7", description: "Damages enemies when dashing."}, // added dash n slash
+  ];
+
+  textSize(18);
+  for (let i = 0; i < upgradesData.length; i++) {
+      let y = height / 2 - 70 + i * 50; // Increased spacing for better readability
+      let item = upgradesData[i];
+
+      // Key indicator button
+      fill(100);
+      rect(width / 2 - 190, y - 15, 30, 30, 5);
+      fill(255);
+      textSize(16);
+      text(item.key, width / 2 - 175, y);
+
+      // Item name and description
+      textAlign(LEFT, CENTER);
+      textSize(18);
+      fill(255);
+      text(item.name, width / 2 - 150, y - 8);
+      textSize(14);
+      fill(200);
+      text(item.description, width / 2 - 150, y + 12);
+
+      // Cost display
+      textAlign(RIGHT, CENTER);
+      textSize(18);
+      fill(255);
+      text(`💰 ${item.cost}`, width / 2 + 180, y);
+  }
+
+  // Purchase instructions and currency display
+  textAlign(CENTER, CENTER);
+  textSize(16);
+  fill(220);
+  text("Press the corresponding number key to purchase.", width / 2, height / 2 + 270); //adjusted position
+  textSize(18);
+  fill(255, 255, 0); // Highlight currency
+  text(`Souls: ${playerCurrency} 🧿`, width / 2, height / 2 + 220); //adjusted position
+
+  pop(); // Restore previous text styles
+  camera.on(); // Turn camera movement back on
+}
+
+function handleShopInput() {
+  if (shopOpen) {
+      if (kb.presses("1")) {
+          attemptPurchase("⏳ Add Time", timeUpgradeCost, () => {
+              endTime += baseTimeIncrease;
+              timeBought++;
+              canBuyTime = false;
+              showUpgradeNotification("Time Added!");
+          }, () => timeUpgradeCost += 5); // Example of a callback for upgrade effect and cost increase
+      } else if (kb.presses("2")) {
+          attemptPurchase("❤️ Health Upgrade", healthUpgradeCosts[healthUpgradeLevel], () => {
+              playerHealth = 100 + (healthUpgradeLevel + 1) * 20;
+              healthUpgradeLevel++;
+              showUpgradeNotification("Health Increased!");
+          });
+      } else if (kb.presses("3")) {
+          attemptPurchase("💥 Damage Upgrade", damageUpgradeCosts[damageUpgradeLevel], () => {
+              playerDmg += 3;
+              damageUpgradeLevel++;
+              showUpgradeNotification("Damage Increased!");
+          });
+      } else if (kb.presses("4") && !hasRicochet) {
+          attemptPurchase("🌀 Ricochet Bullets", ricochetCost, () => {
+              hasRicochet = true;
+              showUpgradeNotification("Ricochet Acquired!");
+          });
+      } else if (kb.presses("5") && !pierceUpgrade) {
+          attemptPurchase("🔁 Pierce Bullets", pierceUpgradeCost, () => {
+              pierceUpgrade = true;
+              showUpgradeNotification("Piercing Shots!");
+          });
+      } else if (kb.presses("6") && !canDash) { //buy dash
+          attemptPurchase("⚡ Dash", dashCost, () => {
+              canDash = true;
+              showUpgradeNotification("Dash Acquired");
+          });
+      } else if (kb.presses("7") && !hasDashSlash && canDash) { //buy dash n slash
+          attemptPurchase("⚔️ Dash n\' Slash", dashSlashCost, () => {
+              hasDashSlash = true;
+              showUpgradeNotification("Dash n' Slash Acquired!");
+          });
+      }
+  }
+}
+
+function attemptPurchase(itemName, cost, onSuccess, onAfford = () => {
+}) {
+  if (typeof cost === 'number' && playerCurrency >= cost) {
+      playerCurrency -= cost;
+      onSuccess();
+      onAfford(); // Optional: function to execute after a successful purchase (e.g., increase cost)
+      console.log(`Purchased: ${itemName}`);
+  } else if (typeof cost === 'string' && cost === "MAX") {
+      console.log(`${itemName} is already at maximum level.`);
+  } else if (typeof cost === 'string' && cost === "BOUGHT") {
+      console.log(`You have already purchased ${itemName}.`);
+  } else {
+      console.log(`Not enough Souls to purchase ${itemName}.`);
+  }
+}
+
+function drawUpgradeNotification(message) {
+  push();
+  camera.off();
+  fill(0, 200);
+  rect(width / 2 - 100, height - 80, 200, 40, 8);
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(18);
+  text("Upgrade Purchased!", width / 2, height - 60);
+  camera.on();
+  pop();
+}
+
+function showUpgradeNotification(message) {
+  upgradeNotificationVisible = true;
+  upgradeNotificationTimer = upgradeNotificationDuration;
+  upgradeNotificationMessage = message;
 }
 
 function level2() {
@@ -815,6 +1116,18 @@ function gameOver() {
 
   mainBackgroundMusic.stop();
 
+}
+
+function handleMousePress() {
+  if (shopOpen &&
+      !(mouse.x > width / 2 - 200 &&
+        mouse.x < width / 2 + 200 &&
+        mouse.y > height / 2 - 150 &&
+        mouse.y < height / 2 + 200)) { //check if click is outside the shop rect
+    shopOpen = false;
+    gamePaused = false;
+    console.log("Shop closed by clicking outside.");
+  }
 }
 
 //update///////////////////////////////////////////
