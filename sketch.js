@@ -50,16 +50,16 @@ let map1DataBR = [
 let map1DataTR = [
   '==============',
   '=.........=..=',
-  '=.=.....=....=',
-  '=....=.......=',
-  '=..=....=....=',
-  '...........=.=',
-  '......=......=',
-  '.............=',
-  '...=.........=',
-  '=.......=....=',
-  '=...=......=.=',
-  '=.......=....=',
+  '=.=..........=',
+  '=..=.........=',
+  '====.........=',
+  '...........===',
+  '....===......=',
+  '...=.==..=====',
+  '.===..=..=...=',
+  '==....=......=',
+  '=...=........=',
+  '=............=',
   '=..=.........=',
   '=====....=====',
 ];
@@ -92,8 +92,14 @@ let stage1MonstersSpawned = false;
 let bullet, bullets;
 let bulletCooldown = 0, bulletDelay = 20; //could be changeable through an upgrade
 
-//images
+//images & music
 let dirtImg;
+let musicPlaying = false;
+
+//timer
+let totalTime = 1 * 60 * 1000;
+let endTime;
+let timerStarted = false;
 
 //gamestates
 let gameState = "titleScreen";
@@ -104,8 +110,13 @@ let pierceUpgrade = false;
 //////////////////////////////////////////////////
 
 function preload() {
-  //preload any animations and images
+  //preload images & fonts
+  soundFormats("mp3");
+  mainBackgroundMusic = loadSound("glitchtrodeLostFragments.mp3")
   dirtImg = loadImage("dirt.png");
+  daFont = loadFont("BlackCasper.ttf");
+  daFont2 = loadFont("AlmendraDisplay-Regular.ttf");
+  
 }
 
 //setup///////////////////////////////////////////
@@ -145,6 +156,7 @@ function createPlayer() {
 
 function setup() {
   new Canvas(700, 700);
+  endTime = millis() + totalTime;
 
   world.gravity.y = 0;
 
@@ -198,6 +210,43 @@ function monsterMechanics() {
       playerDmgedCooldown = playerDmgedDelay;
     }
   }
+
+  if (playerDmgedCooldown <= 0) {
+    player.visible = true;
+  }
+
+}
+
+function drawCountdownTimer() {
+  let timeLeft = max(0, endTime - millis());
+  let secondsLeft = int(timeLeft / 1000);
+
+  let minutes = floor(secondsLeft / 60);
+  let seconds = nf(secondsLeft % 60, 2); 
+
+  let timerText = "Time Left: " + minutes + ":" + seconds;
+
+  camera.off();
+  push();
+  textSize(20);
+  textAlign(LEFT, TOP);
+  textFont("monospace");
+
+  let padding = 8;
+  let w = textWidth(timerText) + padding * 2;
+  let h = 25;
+
+  fill(0, 150); 
+  noStroke();
+  rect(5, 5, w, h, 6); 
+  fill(255);
+  text(timerText, 5 + padding, 8);
+  pop()
+  camera.on();
+
+  if (timeLeft === 0) {
+    gameState = "gameOver";
+  }
 }
 
 //mechanics///////////////////////////////////////
@@ -206,29 +255,31 @@ function playerMovement() {
 
   //player movement
   let moving = false;
+  let playerForce = 35;
   player.vel.x *= .9;
   player.vel.y *= .9;
 
+
   if (kb.pressing('left')) {
-    player.applyForce(-30, 0);
+    player.applyForce(-playerForce, 0);
     moving = true;
     player.image = '🚶';
   };
 
   if (kb.pressing('right')) {
-    player.applyForce(30, 0);
+    player.applyForce(playerForce, 0);
     moving = true;
     player.image = '🚶‍➡️';
   };
 
   if (kb.pressing('up')) { 
-    player.applyForce(0, -30);
+    player.applyForce(0, -playerForce);
     moving = true;
     player.image = '🚶‍➡️';
   };
 
   if (kb.pressing('down')) {
-    player.applyForce(0, 30);
+    player.applyForce(0, playerForce);
     moving = true; 
     player.image = '🚶';
   };
@@ -259,7 +310,7 @@ function bulletMechanics() {
     bullet.vel.y = sin(angle) * speed;
 
     bullet.life = 60; //exchangeable for variable
-    bullet.overlaps(player);
+    bullet.overlaps(player, () => {});
 
     bullets.add(bullet);
 
@@ -320,14 +371,36 @@ function drawHealthBar(sprite, currentHealth, maxHealth, options = {}) {
 
   // Border
   noFill();
-  stroke(255);
+  stroke(0);
   rect(barX, barY, barWidth, barHeight);
   noStroke();
+}
+
+function cameraMapMovement() {
+  //camera movement
+  camera.on(); 
+  let cameraSpeed = 0.1;
+
+  if (player.x < canvas.w && player.y < canvas.h) { //TL
+    camera.x = lerp(camera.x, 350, cameraSpeed);
+    camera.y = lerp(camera.y, 350, cameraSpeed);
+  } else if (player.x > canvas.w && player.y < canvas.h) { //TR
+    camera.x = lerp(camera.x, 1050, cameraSpeed);
+    camera.y = lerp(camera.y, 350, cameraSpeed);
+  } else if (player.x < canvas.w && player.y > canvas.h) { //BL
+    camera.x = lerp(camera.x, 350, cameraSpeed);
+    camera.y = lerp(camera.y, 1050, cameraSpeed);
+  } else if (player.x > canvas.w && player.y > canvas.h) { //BR
+    camera.x = lerp(camera.x, 1050, cameraSpeed);
+    camera.y = lerp(camera.y, 1050, cameraSpeed);
+  }
 }
 
 //gamestates manager//////////////////////////////
 
 function draw() {
+
+  background(0);
 
   //end game if player dies
   if (playerHealth < 1) {
@@ -365,19 +438,22 @@ function draw() {
 //gamestates//////////////////////////////////////
 
 function titleScreen() {
+  push();
   background('black');
   noStroke();
 
-  fill('blue');
-  textAlign(CENTER);
-  textSize(62);
-  textFont("arial");
-  text("untitled time game", width/2, height/2-100);
-
   fill('white');
-  textSize(24);
-  textFont("Arial");
-  text("click left mouse button to start", width/2, height/2);
+  textAlign(CENTER);
+  textSize(72);
+  textFont(daFont);
+  text("TimeBound", width/2, height/2-100);
+
+  fill('gray');
+  textSize(30);
+  textFont(daFont2);
+  text("click left mouse button to start", (width/2), (height/2) + 20);
+  text("WASD to move, LMB to shoot", (width/2), (height/2) + 50);
+  pop();
 
   if (mouse.presses()) {
     gameState = "runGame";
@@ -386,39 +462,38 @@ function titleScreen() {
 
 function runGame() {
   //background
-  image(dirtImg, 0, 0, 700, 700);
-  camera.on();
-  
+  image(dirtImg, 0, 0, canvas.w, canvas.h);
+
+  if (!timerStarted) {
+    endTime = millis() + totalTime;
+    timerStarted = true;
+  }
+
+  if(!musicPlaying) {
+    mainBackgroundMusic.play();
+    mainBackgroundMusic.setVolume(0.4);
+    musicPlaying = true;
+  }
+
   if (!playerCreated) {
     createPlayer();
   }
 
+  cameraMapMovement();
   playerMovement();
   bulletMechanics();
+  monsterMechanics();
 
-  //////////////////////////////////////////////
+  //spawn monsters//////////////////////////////
 
-  monsterDmg = 5
+  monsterDmg = 5;
 
   if (!stage1MonstersSpawned) { //createMonster(100, 100, hp#);
-    createMonster(100, 100, monsterStage1HP + 40);
+    createMonster(100, 100, monsterStage1HP);
     createMonster(300, 150, monsterStage1HP);
     createMonster(500, 250, monsterStage1HP);
   
     stage1MonstersSpawned = true; 
-  }
-
-  monsterMechanics();
-
-  ///////////////////////////////////////////
-
-  if(player.x < 700) {
-    camera.x = lerp(camera.x, 350, 0.1);
-    camera.y = lerp(camera.y, 350, 0.1);
-  } else if (player.x > 700) {
-    camera.x = lerp(camera.x, 1050, 0.1);
-    camera.y = lerp(camera.y, 350, 0.1);
-    //camera.moveTo(1050, 350, 10);
   }
 
   ///////////////////////////////////////////
@@ -428,7 +503,8 @@ function runGame() {
   allSprites.draw();   // renders all sprites
 
   ///////////////////////////////////////////
-
+  
+  drawCountdownTimer();
   drawCrosshair(mouse.x, mouse.y);
   drawHealthBar(player, playerHealth, 100);
 
@@ -449,6 +525,9 @@ function gameOver() {
   textSize(62);
   textFont("arial");
   text("gameover!", width/2, height/2);
+
+  mainBackgroundMusic.stop();
+
 }
 
 //update///////////////////////////////////////////
@@ -466,12 +545,13 @@ function restartGame() {
 * checklist:
 *
 * (bare minimum)
-* [] music & sounds
+* [*] music
+* [] sounds
 * [*] monsters that track & deal certain # dmg
 * [*] bullets do dmg
 * [*] monsters have health
 * [*] ui for health bar
-* [] working rooms w/ camera
+* [*] working rooms w/ camera
 * [] currency system
 * [] shop
 * [] bosses
@@ -483,17 +563,9 @@ function restartGame() {
 * ------------------------------------------------------------
 *
 * notes:
-* isaac was working on figuring out how multi-room maps work
-*   on 4/22, 8:22 PM
 *
-* line 22 might need to be changed to work with cameras, not sure
-*   how they work together yet though
-*
-* "David Bouchard" on yt is goated, watch him for tutorials
-*
-* chatgpt lwk sucks for figuring out p5, but it helps sometimes so
-*   if you can, use https://p5play.org/learn/index.html first
-*
-* cameras need to be used to make health ui's
+* "David Bouchard p5play" on yt is goated, watch him for tutorials
 *
 ****************/
+
+//have to beat rooms in a certain amount of time
