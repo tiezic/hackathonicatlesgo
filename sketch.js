@@ -7,7 +7,7 @@ let player, playerHealth = 100; //"playerHealth -= dmgAmount;" to damage the pla
 let playerDmgedDelay = 180, playerDmgedCooldown = 180;
 let playerDmg = 5;
 let playerCreated = false;
-let playerCurrency = 0;
+let playerCurrency = 10;
 let soulCounter = 0;
 let soulsNeededStage1 = 18;
 let soulsNeededStage2 = 25;
@@ -54,6 +54,10 @@ let pierceUpgrade = false;
 
 //maps & walls
 let walls;
+let brickWalls;
+let treeWalls;
+let houseWalls;
+
 let maps = {};
 let mapLoaded = false;
 let currentRoom = 'room1';
@@ -253,8 +257,6 @@ function preload() {
 
 //setup///////////////////////////////////////////
 
-let tilesArray = [];
-
 function loadAllRooms(mapDataTL, mapDataTR, mapDataBL, mapDataBR) {
   let tileW = 50;
   let tileH = 50;
@@ -265,19 +267,15 @@ function loadAllRooms(mapDataTL, mapDataTR, mapDataBL, mapDataBR) {
 
   // top-left
   let tilesTL = new Tiles(mapDataTL, 0 + offsetX, 0 + offsetY, tileW, tileH, walls);
-  tilesArray.push(tilesTL);
 
   // top-right
   let tilesTR = new Tiles(mapDataTR, cols * tileW + offsetX, 0 + offsetY, tileW, tileH, walls);
-  tilesArray.push(tilesTR);
 
   // bottom-left
   let tilesBL = new Tiles(mapDataBL, 0 + offsetX, rows * tileH + offsetY, tileW, tileH, walls);
-  tilesArray.push(tilesBL);
 
   // bottom-right
   let tilesBR = new Tiles(mapDataBR, cols * tileW + offsetX, rows * tileH + offsetY, tileW, tileH, walls);
-  tilesArray.push(tilesBR);
 
 }
 
@@ -306,21 +304,21 @@ function setup() {
   walls.tile = '=';
   walls.collider = 'static';
 
-  let brickWalls = new Group();
+  brickWalls = new Group();
   brickWalls.w = 50;
   brickWalls.h = 50;
   brickWalls.image = '🧱';
   brickWalls.tile = '#';
   brickWalls.collider = 'static';
 
-  let treeWalls = new Group();
+  treeWalls = new Group();
   treeWalls.w = 50;
   treeWalls.h = 50;
   treeWalls.image = '🌳';
   treeWalls.tile = '+';
   treeWalls.collider = 'static';
 
-  let houseWalls = new Group();
+  houseWalls = new Group();
   houseWalls.w = 50;
   houseWalls.h = 50;
   houseWalls.image = '🏚️';
@@ -361,6 +359,7 @@ function actualShopButton() {
      shopElement.mousePressed(toggleShop);
 }
 
+/*
 function windowResized() {
   resizeCanvas(700, 700); // Or your desired dimensions
   // Update shop button position on resize
@@ -377,8 +376,8 @@ function windowResized() {
       x2: width - 10,
       y2: 40
   };
-  */
-}
+  
+} */
 
 function toggleShop() {
   shopOpen = !shopOpen;
@@ -606,12 +605,26 @@ function bulletMechanics() {
           bullet.remove();
         }
       });
+
       b.overlaps(walls, (bullet, w) => {
         bullet.remove();
       });
+
+      b.overlaps(brickWalls, (bullet) => {
+        bullet.remove();
+      });
+      
+      b.overlaps(treeWalls, (bullet) => {
+        bullet.remove();
+      });
+      
+      b.overlaps(houseWalls, (bullet) => {
+        bullet.remove();
+      });
+
       if (hasRicochet) {
         b.onWall = function () {
-            this.vel.reflect(this.overlap(walls).normal);
+            this.vel.reflect(this.overlap(allWalls).normal);
         }
       }
       b.overlaps(souls, () => {
@@ -985,7 +998,11 @@ function runGame() {
     timerStarted = false;
     soulCounter = 0;
     mapLoaded = false;
-    walls = [];
+
+    walls.removeAll();
+    if (typeof brickWalls !== 'undefined') brickWalls.removeAll();
+    if (typeof treeWalls !== 'undefined') treeWalls.removeAll(); 
+    if (typeof houseWalls !== 'undefined') houseWalls.removeAll();
 
     allSprites.autoDraw = false;
     allSprites.autoUpdate = false;
@@ -1151,6 +1168,23 @@ function level2() {
   image(grassImg, 0, 0, canvas.w, canvas.h);
   monsterDmg = 15;
 
+  if (shopOpen) {
+    drawShop(); 
+    handleShopInput();
+  }
+
+  if (upgradeNotificationVisible) {
+    drawUpgradeNotification();
+    upgradeNotificationTimer--;
+    if (upgradeNotificationTimer <= 0) {
+      upgradeNotificationVisible = false;
+    }
+  }
+
+  if (!shopOpen) {
+    drawCrosshair(mouse.x, mouse.y);
+  }
+
   totalTime = remainingTime + 1.5 * 60 * 1000;
   if (!timerStarted) {
     endTime = millis() + totalTime;
@@ -1200,7 +1234,6 @@ function level2() {
   }
 
   drawCountdownTimer();
-  drawCrosshair(mouse.x, mouse.y);
 
 }
 
