@@ -9,7 +9,7 @@
 * [*] bullets do dmg
 * [*] monsters have health
 * [*] ui for health bar
-* [] working rooms w/ camera
+* [*] working rooms w/ camera
 * [] currency system
 * [] shop
 * [] bosses
