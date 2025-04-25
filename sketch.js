@@ -7,6 +7,7 @@ let player, playerHealth = 100; //"playerHealth -= dmgAmount;" to damage the pla
 let playerDmgedDelay = 180, playerDmgedCooldown = 180;
 let playerDmg = 5;
 let playerCreated = false;
+let playerCurrency = 0;
 
 //maps & walls
 let walls;
@@ -319,6 +320,7 @@ function bulletMechanics() {
         m.health -= playerDmg
         if (m.health <= 0) {
           m.remove();
+          playerCurrency +=1;
         }
         if (!pierceUpgrade) {
           bullet.remove();
@@ -432,6 +434,12 @@ function draw() {
   if (gameState === "gameOver") {
     gameOver();
   }
+
+   // displays currency
+   fill(255, 215, 0); // gold color
+   textSize(20);
+   textAlign(RIGHT);
+   text("Coins: " + playerCurrency, width - 20, 40);
 
 }
 
