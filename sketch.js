@@ -9,7 +9,7 @@ let playerDmg = 5;
 let playerCreated = false;
 let playerCurrency = 0;
 let soulCounter = 0;
-let soulsNeededStage1 = 1;
+let soulsNeededStage1 = 18;
 let soulsNeededStage2 = 25;
 
 //upgrade variables
