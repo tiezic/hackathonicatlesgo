@@ -9,10 +9,13 @@ let playerDmg = 5;
 let playerCreated = false;
 let playerCurrency = 0;
 let soulCounter = 0;
+let soulsNeededStage1 = 18;
+let soulsNeededStage2 = 25;
 
 //maps & walls
 let walls;
 let maps = {};
+let mapLoaded = false;
 let currentRoom = 'room1';
 //tiled map
 let map1DataBL = [
@@ -83,16 +86,89 @@ let map1DataTL = [
   '==============',
 ];
 
+let map2DataBL = [
+  '++++++..++++++',
+  '+............+',
+  '+.........++++',
+  '+...+........+',
+  '+++++++......+',
+  '+.....+....+..',
+  '+..+..+....+++',
+  '+..+.......+..',
+  '+..+++++++++..',
+  '+..+....+....+',
+  '+..+.+..+....+',
+  '+....+....+..+',
+  '+....+....+..+',
+  '++++++++++++++',
+];
+
+let map2DataBR = [
+  '++++++++++++++',
+  '+............+',
+  '+...^....^...+',
+  '+............+',
+  '+...^....^...+',
+  '.............+',
+  '.............+',
+  '.............+',
+  '.............+',
+  '+...^....^...+',
+  '+............+',
+  '+...^....^...+',
+  '+............+',
+  '++++++++++++++',
+];
+
+let map2DataTR = [
+  '##############',
+  '#............#',
+  '#............#',
+  '#............#',
+  '#............#',
+  '#............#',
+  '.............#',
+  '.............#',
+  '#............#',
+  '#............#',
+  '#............#',
+  '#............#',
+  '#............#',
+  '##############',
+];
+
+let map2DataTL = [
+  '+++++++++++++#',
+  '+...........+#',
+  '+...........+#',
+  '+...........+#',
+  '+...........+#',
+  '+...........+#',
+  '+.............',
+  '+.............',
+  '+...........+#',
+  '+...........+#',
+  '+...........+#',
+  '+...........+#',
+  '+...........+#',
+  '++++++..+++++#',
+];
+
 //monster stuff
 let monsters;
 let monsterDmg;
 let monsterStage1HP = 20;
+let monsterStage2HP = 30;
 let monsterSpeed = 1;
 let souls;
 let stage1TLMonstersSpawned = false;
 let stage1TRMonstersSpawned = false;
 let stage1BRMonstersSpawned = false;
 let stage1BLMonstersSpawned = false;
+let stage2TLMonstersSpawned = false;
+let stage2TRMonstersSpawned = false;
+let stage2BRMonstersSpawned = false;
+let stage2BLMonstersSpawned = false;
 
 //bullet stuff
 let bullet, bullets;
@@ -100,18 +176,20 @@ let bulletCooldown = 0, bulletDelay = 20; //could be changeable through an upgra
 
 //images & music
 let dirtImg;
+let grassImg;
 let musicPlaying = false;
 
 //timer
 let totalTime = 1.5 * 60 * 1000; //1:30
 let endTime;
 let timerStarted = false;
+let remainingTime = 0;
 
 //gamestates
-let gameState = "titleScreen";
+let gameState = "level2";
 
 //upgrades
-let pierceUpgrade = false;
+let pierceUpgrade = true;
 
 //////////////////////////////////////////////////
 
@@ -120,6 +198,7 @@ function preload() {
   soundFormats("mp3");
   mainBackgroundMusic = loadSound("glitchtrodeLostFragments.mp3")
   dirtImg = loadImage("dirt.png");
+  grassImg = loadImage("grass.png");
   daFont = loadFont("BlackCasper.ttf");
   daFont2 = loadFont("AlmendraDisplay-Regular.ttf");
   
@@ -127,31 +206,31 @@ function preload() {
 
 //setup///////////////////////////////////////////
 
-function loadAllRooms() {
+function loadAllRooms(mapDataTL, mapDataTR, mapDataBL, mapDataBR) {
   let tileW = 50;
   let tileH = 50;
   let offsetX = tileW / 2;
   let offsetY = tileH / 2;
-  let cols = map1DataTL[0].length;
-  let rows = map1DataTL.length;
+  let cols = mapDataTL[0].length;
+  let rows = mapDataTL.length;
 
   // top-left
-  new Tiles(map1DataTL, 0 + offsetX, 0 + offsetY, tileW, tileH, walls);
+  new Tiles(mapDataTL, 0 + offsetX, 0 + offsetY, tileW, tileH, walls);
 
   // top-right
-  new Tiles(map1DataTR, cols * tileW + offsetX, 0 + offsetY, tileW, tileH, walls);
+  new Tiles(mapDataTR, cols * tileW + offsetX, 0 + offsetY, tileW, tileH, walls);
 
   // bottom-left
-  new Tiles(map1DataBL, 0 + offsetX, rows * tileH + offsetY, tileW, tileH, walls);
+  new Tiles(mapDataBL, 0 + offsetX, rows * tileH + offsetY, tileW, tileH, walls);
 
   // bottom-right
-  new Tiles(map1DataBR, cols * tileW + offsetX, rows * tileH + offsetY, tileW, tileH, walls);
+  new Tiles(mapDataBR, cols * tileW + offsetX, rows * tileH + offsetY, tileW, tileH, walls);
 
 }
 
-function createPlayer() {
+function createPlayer(x, y) {
     //player attributes
-    player = new Sprite(100, 350, 40, 'dynamic');
+    player = new Sprite(x, y, 40, 'dynamic');
     player.image = '🧍';
     player.rotationLock = true;
     player.friction = 0.01;
@@ -174,7 +253,26 @@ function setup() {
   walls.tile = '=';
   walls.collider = 'static';
 
-  loadAllRooms();
+  let brickWalls = new Group();
+  brickWalls.w = 50;
+  brickWalls.h = 50;
+  brickWalls.image = '🧱';
+  brickWalls.tile = '#';
+  brickWalls.collider = 'static';
+
+  let treeWalls = new Group();
+  treeWalls.w = 50;
+  treeWalls.h = 50;
+  treeWalls.image = '🌳';
+  treeWalls.tile = '+';
+  treeWalls.collider = 'static';
+
+  let houseWalls = new Group();
+  houseWalls.w = 50;
+  houseWalls.h = 50;
+  houseWalls.image = '🏚️';
+  houseWalls.tile = '^';
+  houseWalls.collider = 'static';
 
   bullets = new Group();
   monsters = new Group();
@@ -238,6 +336,7 @@ function drawCountdownTimer() {
   let seconds = nf(secondsLeft % 60, 2); 
 
   let timerText = "Time Left: " + minutes + ":" + seconds;
+  let soulCounterText = "Souls left: " + (soulsNeededStage1 - soulCounter);
 
   camera.off();
   push();
@@ -247,14 +346,16 @@ function drawCountdownTimer() {
 
   let padding = 8;
   let w = textWidth(timerText) + padding * 2;
-  let h = 25;
+  let h = 50;
 
   fill(0, 150); 
   noStroke();
   rect(5, 5, w, h, 6); 
   fill(255);
-  text(timerText, 5 + padding, 8);
-  pop()
+  text(timerText, 5 + padding, 9);
+  fill(0, 100, 230);
+  text(soulCounterText, 5 + padding, 32);
+  pop();
   camera.on();
 
   if (timeLeft === 0) {
@@ -341,6 +442,9 @@ function bulletMechanics() {
       });
       b.overlaps(walls, (bullet, w) => {
         bullet.remove();
+      });
+      b.overlaps(souls, () => {
+        //empty, if bullet interacts with soul do nothing
       });
     }
 
@@ -456,11 +560,60 @@ function monsterTrackingStage1() {
 
 }
 
+function monsterTrackingStage2() {
+
+  if (player.x < canvas.w && player.y < canvas.h) { //TL
+    if (!stage2TLMonstersSpawned) { //createMonster(100, 100, hp#);
+      createMonster(100, 100, monsterStage2HP);
+      createMonster(300, 150, monsterStage2HP);
+      createMonster(500, 250, monsterStage2HP);
+    
+      stage2TLMonstersSpawned = true; 
+    }  
+  } else if (player.x > canvas.w && player.y < canvas.h) { //TR
+    if (!stage2TRMonstersSpawned) { //createMonster(100, 100, hp#);
+      createMonster(800, 100, monsterStage2HP);
+      createMonster(1000, 150, monsterStage2HP);
+      createMonster(1300, 250, monsterStage2HP);
+      createMonster(1000, 600, monsterStage2HP);
+      createMonster(1300, 550, monsterStage2HP);
+    
+      stage2TRMonstersSpawned = true; 
+    }
+  } else if (player.x < canvas.w && player.y > canvas.h) { //BL
+    if (!stage2BLMonstersSpawned) { //createMonster(100, 100, hp#);
+      createMonster(650, 1250, monsterStage2HP);
+      createMonster(500, 1150, monsterStage2HP);
+      createMonster(400, 1350, monsterStage2HP);
+    
+      stage2BLMonstersSpawned = true; 
+    }
+  } else if (player.x > canvas.w && player.y > canvas.h) { //BR
+    if (!stage2BRMonstersSpawned) { //createMonster(100, 100, hp#);
+      createMonster(1150, 1250, monsterStage2HP);
+      createMonster(1250, 1150, monsterStage2HP);
+      createMonster(850, 1050, monsterStage2HP);
+      createMonster(1300, 950, monsterStage2HP);
+      createMonster(900, 1250, monsterStage2HP);
+    
+      stage2BRMonstersSpawned = true; 
+    }
+  }
+
+}
+
 //gamestates manager//////////////////////////////
 
 function draw() {
 
   background(0);
+  if (mouse.presses()) {
+    if(!musicPlaying) {
+      mainBackgroundMusic.play();
+      mainBackgroundMusic.setVolume(0.4);
+      musicPlaying = true;
+    }
+  }
 
   //end game if player dies
   if (playerHealth < 1) {
@@ -474,21 +627,9 @@ function draw() {
   if (gameState === "runGame") {
     runGame();
   }
-  /*
-    if (gameState === "stage 1") {
-    stage1();
+    if (gameState === "level2") {
+    level2();
   }
-    */
-  /*
-    if (gameState === "stage 2") {
-    stage2();
-  }
-    */
-  /*
-    if (gameState === "stage 3") {
-    stage1();
-  }
-    */
   if (gameState === "gameOver") {
     gameOver();
   }
@@ -540,14 +681,14 @@ function runGame() {
     timerStarted = true;
   }
 
-  if(!musicPlaying) {
-    mainBackgroundMusic.play();
-    mainBackgroundMusic.setVolume(0.4);
-    musicPlaying = true;
+  if (!playerCreated) {
+    createPlayer(100, 350);
+    playerCreated = true;
   }
 
-  if (!playerCreated) {
-    createPlayer();
+  if (!mapLoaded) {
+    loadAllRooms(map1DataTL, map1DataTR, map1DataBL, map1DataBR)
+    mapLoaded = true;
   }
 
   cameraMapMovement();
@@ -567,6 +708,77 @@ function runGame() {
 
   ///////////////////////////////////////////
   
+  for (let soul of souls) {
+    if (soul.collectible && soul.overlapping(player)) {
+      soul.collectible = false;
+      soul.remove(); // collect the soul
+  
+      soulCounter += 1;
+  
+      // particle effect or sound here
+    }
+  }
+
+  drawHealthBar(player, playerHealth, 100);
+
+  for (let m of monsters) {
+    drawHealthBar(m, m.health, m.maxHealth, {
+      barWidth: 20, barHeight: 3, color: "red", background: 'black'
+    });
+  }
+
+  drawCountdownTimer();
+  drawCrosshair(mouse.x, mouse.y);
+  if (soulCounter === soulsNeededStage1) { //stage win condition
+    remainingTime = max(0, endTime - millis());
+    timerStarted = false;
+    playerCreated = false;
+    soulCounter = 0;
+    mapLoaded = false;
+
+    allSprites.autoDraw = false;
+    allSprites.autoUpdate = false;
+    world.autoStep = false;
+
+    gameState = "level2";
+
+  }
+
+}
+
+function level2() {
+  image(grassImg, 0, 0, canvas.w, canvas.h);
+  monsterDmg = 15;
+
+  totalTime = remainingTime + 1.5 * 60 * 1000;
+  if (!timerStarted) {
+    endTime = millis() + totalTime;
+    timerStarted = true;
+  }
+
+  if (!playerCreated) {
+    createPlayer(100, 1050);
+    playerCreated = true;
+  }
+
+  if (!mapLoaded) {
+    loadAllRooms(map2DataTL, map2DataTR, map2DataBL, map2DataBR)
+    mapLoaded = true;
+  }
+
+  cameraMapMovement();
+  image(dirtImg, 700, 0, canvas.w, canvas.h);
+  playerMovement();
+  bulletMechanics();
+  monsterMechanics();
+  monsterTrackingStage2();
+
+  ///////////////////////////////////////////
+
+  world.step();        // updates physics
+  allSprites.update(); // updates sprite logic
+  allSprites.draw();   // renders all sprites
+
   for (let soul of souls) {
     if (soul.collectible && soul.overlapping(player)) {
       soul.collectible = false;
@@ -630,7 +842,7 @@ function restartGame() {
 * [] currency system
 * [] shop
 * [] bosses
-* [] stage 1 done
+* [*] stage 1 done
 * (extras)
 * [] animations/cutscenes
 * [] different classes
